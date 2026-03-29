@@ -107,133 +107,31 @@ The onboard ST7789V2 display is wired to the ESP32 internally via dedicated GPIO
 
 ---
 
-## Arduino IDE Board Configuration
+## Backlight Dimming (PWM — ESP-IDF)
 
-From the official diymore product documentation images:
+GPIO32 is PWM-capable via the LEDC peripheral:
 
-| Setting | Value |
-|---------|-------|
-| Board | **ESP32 Wrover Module** |
-| Core Debug Level | None |
-| Erase All Flash Before Sketch Upload | Disabled |
-| Flash Frequency | 80MHz |
-| Flash Mode | QIO |
-| Partition Scheme | Default 4MB with spiffs (1.2MB APP / 1.5MB SPIFFS) |
-| Upload Speed | 921600 |
+```c
+#include "driver/ledc.h"
 
-> **Important:** Use **"ESP32 Wrover Module"** — not the generic `esp32dev`. If uploads fail at 921600 baud, drop to 460800.
+ledc_timer_config_t timer = {
+    .speed_mode      = LEDC_LOW_SPEED_MODE,
+    .timer_num       = LEDC_TIMER_0,
+    .duty_resolution = LEDC_TIMER_8_BIT,
+    .freq_hz         = 5000,
+    .clk_cfg         = LEDC_AUTO_CLK,
+};
+ledc_timer_config(&timer);
 
-Board manager URL:
-```
-https://dl.espressif.com/dl/package_esp32_index.json
-```
-
----
-
-## TFT_eSPI Configuration
-
-Complete `User_Setup.h` for the onboard display. Place this in your `TFT_eSPI` library folder, replacing the default `User_Setup.h`.
-
-```cpp
-// User_Setup.h for diymore ESP32 1.9" LCD (ST7789V2, 170x320)
-// Confirmed pin mapping from ideaspark board (identical hardware)
-// and Waveshare LCD_Driver source code
-
-#define USER_SETUP_ID 100
-
-// Driver
-#define ST7789_DRIVER
-
-// Display dimensions
-#define TFT_WIDTH  170
-#define TFT_HEIGHT 320
-
-// Colour order — ST7789V2 uses BGR
-#define TFT_RGB_ORDER TFT_BGR
-
-// Inversion ON required for correct colours on this panel
-#define TFT_INVERSION_ON
-
-// Internal LCD SPI wiring (NOT the header pins)
-#define TFT_MOSI  23   // SDA
-#define TFT_SCLK  18   // SCL / CLK
-#define TFT_CS    15   // Chip Select
-#define TFT_DC     2   // Data/Command
-#define TFT_RST    4   // Reset
-#define TFT_BL    32   // Backlight (PWM capable)
-#define TFT_MISO  -1   // Not connected — display is write-only
-
-// Backlight ON level
-#define TFT_BACKLIGHT_ON HIGH
-
-// Fonts to load
-#define LOAD_GLCD
-#define LOAD_FONT2
-#define LOAD_FONT4
-#define LOAD_FONT6
-#define LOAD_FONT7
-#define LOAD_FONT8
-#define LOAD_GFXFF
-#define SMOOTH_FONT
-
-// SPI speed — 80MHz is stable on this board
-#define SPI_FREQUENCY       80000000
-#define SPI_READ_FREQUENCY  20000000
-```
-
----
-
-## Starter Sketch — Display Test
-
-```cpp
-#include <TFT_eSPI.h>
-
-TFT_eSPI tft = TFT_eSPI();
-
-void setup() {
-  // Turn on backlight
-  pinMode(32, OUTPUT);
-  digitalWrite(32, HIGH);
-
-  tft.init();
-  tft.setRotation(0);         // 0 = portrait. 1 = landscape.
-  tft.fillScreen(TFT_BLACK);
-
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  tft.setTextSize(2);
-  tft.setCursor(10, 10);
-  tft.println("diymore ESP32");
-  tft.setCursor(10, 40);
-  tft.println("1.9\" ST7789V2");
-  tft.setCursor(10, 70);
-  tft.println("170 x 320");
-
-  // Colour blocks
-  tft.fillRect(10,  120, 45, 45, TFT_RED);
-  tft.fillRect(65,  120, 45, 45, TFT_GREEN);
-  tft.fillRect(120, 120, 45, 45, TFT_BLUE);
-}
-
-void loop() {}
-```
-
----
-
-## Backlight Dimming (PWM)
-
-GPIO32 is PWM-capable, allowing smooth brightness control:
-
-```cpp
-const int BL_PIN     = 32;
-const int BL_CHANNEL = 0;
-const int BL_FREQ    = 5000;  // 5kHz
-const int BL_RES     = 8;     // 8-bit resolution (0–255)
-
-void setup() {
-  ledcSetup(BL_CHANNEL, BL_FREQ, BL_RES);
-  ledcAttachPin(BL_PIN, BL_CHANNEL);
-  ledcWrite(BL_CHANNEL, 200); // 0 = off, 255 = full brightness
-}
+ledc_channel_config_t ch = {
+    .gpio_num   = 32,
+    .speed_mode = LEDC_LOW_SPEED_MODE,
+    .channel    = LEDC_CHANNEL_0,
+    .timer_sel  = LEDC_TIMER_0,
+    .duty       = 200,   // 0 = off, 255 = full brightness
+    .hpoint     = 0,
+};
+ledc_channel_config(&ch);
 ```
 
 ---
@@ -280,74 +178,45 @@ GPIO2, 4, 12, 13, 14, 15, 25, 26, 27 are all ADC2 channels. ADC2 is unreliable f
 
 ---
 
-## Libraries
+## ESP-IDF Components
 
-### Display
+All built into ESP-IDF — no external dependencies needed for display or core peripherals:
 
-| Library | Notes |
-|---------|-------|
-| **TFT_eSPI** (Bodmer) | Recommended. Fast, full-featured, ST7789 support built-in. |
-| **LovyanGFX** | High-performance alternative, has auto-detect mode |
-| **Adafruit ST7789** | Simpler, slower alternative |
-| **Arduino_GFX** | Waveshare's preferred library in their own demo code |
-| **LVGL** | Full GUI framework — widgets, animations, events |
-
-### WiFi
-
-| Library | Notes |
-|---------|-------|
-| `WiFi.h` | Built into Arduino core |
-| **AsyncTCP + ESPAsyncWebServer** | Non-blocking async web server |
-| **HTTPClient** | REST / HTTP requests |
-| **WiFiManager** | Captive portal for runtime WiFi credential entry |
-
-### Bluetooth
-
-| Library | Notes |
-|---------|-------|
-| `BluetoothSerial.h` | Classic Bluetooth (BR/EDR) — built-in |
-| `BLEDevice.h` | Bluetooth Low Energy — built-in |
-
-### IoT / Protocols
-
-| Library | Notes |
-|---------|-------|
-| **PubSubClient** | MQTT client |
-| **ArduinoJson** | JSON parsing / serialisation |
+| Component | Header | Purpose |
+|-----------|--------|---------|
+| SPI Master | `driver/spi_master.h` | SPI bus and device management |
+| GPIO | `driver/gpio.h` | Pin control |
+| LEDC | `driver/ledc.h` | PWM for backlight dimming |
+| WiFi | `esp_wifi.h` | 2.4GHz WiFi |
+| HTTP Server | `esp_http_server.h` | Embedded web server |
+| MQTT | `mqtt_client.h` | MQTT (via `idf_component.yml`) |
 
 ---
 
 ## Development Environment Setup
 
-### Arduino IDE
+### ESP-IDF (VS Code)
 
-1. Install **CH340 driver** (search "CH340 Driver" for your OS; Linux usually has it built in)
-2. Open Arduino IDE → File → Preferences → Additional Boards Manager URLs → paste:
-   `https://dl.espressif.com/dl/package_esp32_index.json`
-3. Tools → Board → Boards Manager → search **ESP32** → install **esp32 by Espressif Systems**
-4. Select Tools → Board → **ESP32 Wrover Module**
-5. Set: Flash Mode: QIO | Flash Frequency: 80MHz | Upload Speed: 921600
-6. Install **TFT_eSPI** via Library Manager
-7. Replace `TFT_eSPI/User_Setup.h` with the config from this document
+Use the same toolchain layout as other ESP-IDF projects. `flash.ps1` at project root sets up the environment and wraps `idf.py`:
 
-### PlatformIO (VS Code) — Recommended
-
-`platformio.ini`:
-```ini
-[env:esp32wrover]
-platform  = espressif32
-board     = esp32wrover
-framework = arduino
-monitor_speed = 115200
-upload_speed  = 921600
-
-lib_deps =
-    bodmer/TFT_eSPI
-    bblanchon/ArduinoJson
-    knolleary/PubSubClient
+```powershell
+.\flash.ps1 build
+.\flash.ps1 -p COM3 build flash monitor
 ```
 
-Place your custom `User_Setup.h` in the project's `lib/TFT_eSPI/` folder to override the library default without editing the library itself.
+Top-level `CMakeLists.txt`:
+```cmake
+cmake_minimum_required(VERSION 3.16)
+include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+project(your-project)
+```
+
+`main/CMakeLists.txt`:
+```cmake
+idf_component_register(SRCS "main.c" INCLUDE_DIRS ".")
+```
+
+> **Note:** ESP-IDF defines `SPI_HOST` as `SPI1_HOST`. Use `SPI2_HOST` directly for the LCD. See Known Issues.
 
 ### Firmware Download Mode
 
@@ -382,6 +251,9 @@ After flashing, the board creates a WiFi access point (`HW-656 Server` at `192.1
 | **ADC2 with WiFi** | All ADC2 pins (GPIO2, 4, 12–15, 25–27) are unreliable for analogue reads when WiFi is active. |
 | **SPI bus sharing** | GPIO18 (SCLK) and GPIO23 (MOSI) are shared between the LCD and the external SPI header. Adding another SPI device on these pins will work electrically, but requires careful CS management. |
 | **Board type** | Must use "ESP32 Wrover Module" not generic esp32dev — wrong partition/memory layout otherwise. |
+| **ST7789V2 column offset** | The frame buffer is 240 columns wide but the panel is only 170. The visible area starts at column 35. Any SPI driver must add a column offset of 35 to all CASET commands, otherwise drawing is misaligned and old GRAM content shows at the edges. Row offset is 0. |
+| **SPI clock limit (ESP-IDF)** | ESP-IDF rejects clock speeds above ~26.6 MHz for SPI devices on non-IOMUX pins in full-duplex mode. Use 26 MHz. Also set `SPI_DEVICE_HALFDUPLEX` since the display is write-only — this removes the frequency restriction entirely. |
+| **SPI_HOST name conflict** | ESP-IDF defines `SPI_HOST` as `SPI1_HOST` in `hal/spi_types.h`. Do not redefine it. Use `SPI2_HOST` directly or name your macro something else (e.g. `LCD_SPI_HOST`). |
 
 ---
 

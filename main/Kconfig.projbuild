@@ -1,0 +1,15 @@
+menu "Screen Test"
+
+    config WIFI_SSID
+        string "WiFi SSID"
+        default "myssid"
+        help
+            SSID of the WiFi network to connect to.
+
+    config WIFI_PASSWORD
+        string "WiFi password"
+        default "mypassword"
+        help
+            Password for the WiFi network.
+
+endmenu

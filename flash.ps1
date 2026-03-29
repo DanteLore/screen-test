@@ -1,6 +1,6 @@
 # Build and flash the screen-test project using ESP-IDF.
-# Usage: .\build.ps1 build
-#        .\build.ps1 -p COM3 build flash monitor
+# Usage: .\flash.ps1 build
+#        .\flash.ps1 -p COM3 build flash monitor
 
 $env:IDF_PATH = "C:\esp\v5.5.3\esp-idf"
 $env:IDF_TOOLS_PATH = "C:\Espressif\tools"
@@ -15,6 +15,44 @@ $env:PATH = @(
     "C:\Espressif\tools\python\v5.5.3\venv\Scripts",
     $env:PATH
 ) -join ";"
+
+# Inject WiFi credentials from secrets.env into sdkconfig
+$secretsFile = Join-Path $PSScriptRoot "secrets.env"
+if (-not (Test-Path $secretsFile)) {
+    Write-Error "secrets.env not found -- copy secrets.example.env and fill in your credentials"
+    exit 1
+}
+
+$secrets = @{}
+Get-Content $secretsFile | Where-Object { $_ -match "^\s*\w" } | ForEach-Object {
+    $key, $value = $_ -split "=", 2
+    $secrets[$key.Trim()] = $value.Trim()
+}
+
+$sdkconfig = Join-Path $PSScriptRoot "sdkconfig"
+if (Test-Path $sdkconfig) {
+    $content = Get-Content $sdkconfig
+    $replacements = @{
+        'CONFIG_WIFI_SSID'     = $secrets['WIFI_SSID']
+        'CONFIG_WIFI_PASSWORD' = $secrets['WIFI_PASSWORD']
+    }
+
+    foreach ($key in $replacements.Keys) {
+        $val = $replacements[$key]
+        if ($content -match "$key=") {
+            $content = $content -replace "$key=`".*`"", "$key=`"$val`""
+        } else {
+            $content += "$key=`"$val`""
+        }
+    }
+
+    $content | Set-Content $sdkconfig
+} else {
+    @(
+        "CONFIG_WIFI_SSID=`"$($secrets['WIFI_SSID'])`"",
+        "CONFIG_WIFI_PASSWORD=`"$($secrets['WIFI_PASSWORD'])`""
+    ) | Set-Content $sdkconfig
+}
 
 & C:\Espressif\tools\python\v5.5.3\venv\Scripts\python.exe `
     C:\esp\v5.5.3\esp-idf\tools\idf.py @args

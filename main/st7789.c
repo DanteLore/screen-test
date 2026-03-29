@@ -1,19 +1,21 @@
 #include "st7789.h"
+#include "font8x8_basic.h"
 
 #include "driver/spi_master.h"
 #include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+#include <string.h>
 
 static const char *TAG = "st7789";
 
 #define LCD_SPI_HOST    SPI2_HOST
 #define SPI_CLOCK       26000000
 
-// ST7789V2 frame buffer is 240x320; the 170-wide panel is offset by 35 columns
-#define COL_OFFSET  35
-#define ROW_OFFSET   0
+// Landscape mode: frame buffer is 320x240. Panel is 320x170 → row offset 35.
+#define COL_OFFSET   0
+#define ROW_OFFSET  35
 
 // ST7789 commands
 #define CMD_SWRESET 0x01
@@ -122,7 +124,7 @@ void st7789_init(void)
     write_data_byte(0x55);   // RGB565
 
     write_cmd(CMD_MADCTL);
-    write_data_byte(0x00);
+    write_data_byte(0xA0);   // MY | MV = landscape, 180° rotation
 
     write_cmd(CMD_INVON);    // inversion required for this panel
 
@@ -133,6 +135,50 @@ void st7789_init(void)
 void st7789_fill(uint16_t colour)
 {
     st7789_fill_rect(0, 0, ST7789_WIDTH, ST7789_HEIGHT, colour);
+}
+
+void st7789_draw_pixels(int x, int y, int w, int h, const uint16_t *pixels)
+{
+    set_window(x, y, x + w - 1, y + h - 1);
+    gpio_set_level(ST7789_PIN_DC, 1);
+
+    int total = w * h;
+    int i = 0;
+    while (i < total) {
+        int n = (total - i < 128) ? total - i : 128;
+        spi_transaction_t t = {
+            .length    = n * 16,
+            .tx_buffer = &pixels[i],
+        };
+        spi_device_polling_transmit(spi, &t);
+        i += n;
+    }
+}
+
+void st7789_draw_char(int x, int y, unsigned char c, uint16_t fg, uint16_t bg)
+{
+    unsigned char uc = c;
+    if (uc > 127) uc = '?';
+    const char *glyph = font8x8_basic[uc];
+
+    // 8x8 pixel buffer, big-endian RGB565
+    uint16_t buf[64];
+    for (int row = 0; row < 8; row++) {
+        for (int col = 0; col < 8; col++) {
+            uint16_t colour = (glyph[row] & (1 << col)) ? fg : bg;
+            buf[row * 8 + col] = (colour >> 8) | (colour << 8);
+        }
+    }
+    st7789_draw_pixels(x, y, 8, 8, buf);
+}
+
+void st7789_draw_string(int x, int y, const char *str, uint16_t fg, uint16_t bg)
+{
+    while (*str) {
+        st7789_draw_char(x, y, (unsigned char)*str, fg, bg);
+        x += 8;
+        str++;
+    }
 }
 
 void st7789_fill_rect(int x, int y, int w, int h, uint16_t colour)

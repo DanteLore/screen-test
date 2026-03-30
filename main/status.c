@@ -28,18 +28,16 @@ bool status_get(cam_status_t *out)
         return false;
     }
 
-    cJSON *voltage    = cJSON_GetObjectItem(json, "battery_voltage");
-    cJSON *uptime     = cJSON_GetObjectItem(json, "uptime");
+    cJSON *voltage     = cJSON_GetObjectItem(json, "battery_voltage");
     cJSON *recorded_at = cJSON_GetObjectItem(json, "recorded_at");
 
-    if (!voltage || !uptime || !recorded_at) {
+    if (!voltage || !recorded_at) {
         ESP_LOGE(TAG, "missing fields");
         cJSON_Delete(json);
         return false;
     }
 
     out->battery_voltage = (float)cJSON_GetNumberValue(voltage);
-    out->uptime          = (int)cJSON_GetNumberValue(uptime);
 
     // recorded_at format: "2025-03-15T14:30:22.123456+00:00"
     // Extract HH:MM:SS starting at index 11

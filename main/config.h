@@ -12,7 +12,6 @@
 // Stats panel (right) — 120x170
 #define STATS_X        200
 #define STATS_W        120
-#define STATS_CAM_Y      8
-#define STATS_TIME_Y    50
-#define STATS_VOLT_Y    90
-#define STATS_UPTIME_Y 130
+#define STATS_CAM_Y     18
+#define STATS_TIME_Y    68
+#define STATS_VOLT_Y   118

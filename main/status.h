@@ -4,7 +4,6 @@
 
 typedef struct {
     float battery_voltage;
-    int   uptime;
     char  time_str[12];  // "HH:MM:SS"
 } cam_status_t;
 

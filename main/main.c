@@ -31,11 +31,6 @@ static void draw_stats(const cam_status_t *s)
     int volt_x = STATS_X + (STATS_W - 8 * (int)strlen(buf)) / 2;
     st7789_draw_string(volt_x, STATS_VOLT_Y, buf, COLOR_WHITE, COLOR_BLACK);
 
-    int hours   = s->uptime / 3600;
-    int minutes = (s->uptime % 3600) / 60;
-    snprintf(buf, sizeof(buf), "%dh%02dm", hours, minutes);
-    int up_x = STATS_X + (STATS_W - 8 * (int)strlen(buf)) / 2;
-    st7789_draw_string(up_x, STATS_UPTIME_Y, buf, COLOR_WHITE, COLOR_BLACK);
 }
 
 void app_main(void)

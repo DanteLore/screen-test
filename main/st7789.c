@@ -99,8 +99,7 @@ void st7789_init(void)
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
     };
-    esp_err_t ret = spi_bus_initialize(LCD_SPI_HOST, &bus, SPI_DMA_CH_AUTO);
-    ESP_LOGI(TAG, "spi_bus_initialize: %s", esp_err_to_name(ret));
+    ESP_ERROR_CHECK(spi_bus_initialize(LCD_SPI_HOST, &bus, SPI_DMA_CH_AUTO));
 
     // SPI device
     spi_device_interface_config_t dev = {
@@ -110,8 +109,7 @@ void st7789_init(void)
         .queue_size     = 1,
         .flags          = SPI_DEVICE_HALFDUPLEX,
     };
-    ret = spi_bus_add_device(LCD_SPI_HOST, &dev, &spi);
-    ESP_LOGI(TAG, "spi_bus_add_device: %s", esp_err_to_name(ret));
+    ESP_ERROR_CHECK(spi_bus_add_device(LCD_SPI_HOST, &dev, &spi));
 
     // Initialisation sequence
     write_cmd(CMD_SWRESET);

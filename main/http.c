@@ -24,6 +24,7 @@ esp_err_t http_get(const char *url, uint8_t **out_buf, int *out_len)
     }
 
     int content_len = esp_http_client_fetch_headers(client);
+    // Fall back to a generous cap if server doesn't send Content-Length
     int buf_size = (content_len > 0) ? content_len : 65536;
 
     uint8_t *buf = malloc(buf_size + 1);  // +1 for null terminator

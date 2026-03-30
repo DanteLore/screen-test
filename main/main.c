@@ -30,12 +30,15 @@ static void draw_stats(const cam_status_t *s)
     snprintf(buf, sizeof(buf), "%.1fv", s->battery_voltage);
     int volt_x = STATS_X + (STATS_W - 8 * (int)strlen(buf)) / 2;
     st7789_draw_string(volt_x, STATS_VOLT_Y, buf, COLOR_WHITE, COLOR_BLACK);
-
 }
 
 void app_main(void)
 {
-    nvs_flash_init();
+    esp_err_t nvs_err = nvs_flash_init();
+    if (nvs_err == ESP_ERR_NVS_NO_FREE_PAGES || nvs_err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        nvs_flash_erase();
+        nvs_flash_init();
+    }
     wifi_init();
     wifi_connect();
     st7789_init();
